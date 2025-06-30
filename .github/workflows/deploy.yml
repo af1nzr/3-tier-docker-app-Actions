@@ -49,10 +49,11 @@ jobs:
       - name: Build and Tag Images
         run: |
           docker-compose -f docker-compose.yml build
+      
+          docker tag 3-tier-docker-app-actions_frontend $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest
+          docker tag 3-tier-docker-app-actions_backend $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest
+          docker tag 3-tier-docker-app-actions_db $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest
 
-          docker tag 3-tier-frontend $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest
-          docker tag 3-tier-backend $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest
-          docker tag 3-tier-db $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest
 
       - name: Push Images to ACR
         run: |
