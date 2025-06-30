@@ -1,0 +1,15 @@
+3-tier-app/
+├── .github/
+│   └── workflows/
+│       └── deploy.yml                 <-- GitHub Actions Workflow
+├── frontend/
+│   ├── index.html
+│   └── Dockerfile
+├── backend/
+│   ├── app.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── db/
+│   └── Dockerfile
+├── docker-compose.yml                <-- For local development
+└── README.md

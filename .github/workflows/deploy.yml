@@ -1,0 +1,102 @@
+name: CICD 3Tier app
+
+on:
+  push:
+    branches: [main]
+
+env:
+  RESOURCE_GROUP_NAME: "my-resource-group"
+  LOCATION: "eastus"
+  ACR_NAME: "myacr001"
+  ACR_LOGIN_SERVER: "myacr001.azurecr.io"
+  FRONTEND_IMAGE: "frontend"
+  BACKEND_IMAGE: "backend"
+  DB_IMAGE: "db"
+  ACI_NAME_FRONTEND: "aci-frontend"
+  ACI_NAME_BACKEND: "aci-backend"
+  ACI_NAME_DB: "aci-db"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create Resource Group
+        run: |
+          az group create --name "${{ env.RESOURCE_GROUP_NAME }}" --location "${{ env.LOCATION }}"
+
+      - name: Docker login to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and Tag Images
+        run: |
+          docker-compose -f docker-compose.yml build
+
+          docker tag 3-tier-frontend $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest
+          docker tag 3-tier-backend $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest
+          docker tag 3-tier-db $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest
+
+      - name: Push Images to ACR
+        run: |
+          docker push $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest
+          docker push $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest
+          docker push $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest
+
+      - name: Deploy Frontend ACI
+        run: |
+          az container create \
+            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
+            --name ${{ env.ACI_NAME_FRONTEND }} \
+            --image $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest \
+            --cpu 1 \
+            --memory 1 \
+            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-username ${{ secrets.ACR_USERNAME }} \
+            --registry-password ${{ secrets.ACR_PASSWORD }} \
+            --dns-name-label frontend-${{ github.run_number }} \
+            --ports 80
+
+      - name: Deploy Backend ACI
+        run: |
+          az container create \
+            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
+            --name ${{ env.ACI_NAME_BACKEND }} \
+            --image $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest \
+            --cpu 1 \
+            --memory 1 \
+            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-username ${{ secrets.ACR_USERNAME }} \
+            --registry-password ${{ secrets.ACR_PASSWORD }} \
+            --dns-name-label backend-${{ github.run_number }} \
+            --ports 5000
+
+      - name: Deploy MySQL ACI
+        run: |
+          az container create \
+            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
+            --name ${{ env.ACI_NAME_DB }} \
+            --image $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest \
+            --cpu 1 \
+            --memory 1 \
+            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-username ${{ secrets.ACR_USERNAME }} \
+            --registry-password ${{ secrets.ACR_PASSWORD }} \
+            --dns-name-label mysql-${{ github.run_number }} \
+            --ports 3306 \
+            --environment-variables \
+                MYSQL_ROOT_PASSWORD=123456 \
+                MYSQL_DATABASE=appdb \
+                MYSQL_USER=admin \
+                MYSQL_PASSWORD=password
