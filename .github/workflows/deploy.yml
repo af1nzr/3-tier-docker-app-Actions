@@ -7,8 +7,8 @@ on:
 env:
   RESOURCE_GROUP_NAME: "my-resource-group"
   LOCATION: "eastus"
-  ACR_NAME: "myacr001"
-  ACR_LOGIN_SERVER: "myacr001.azurecr.io"
+  ACR_NAME: "myacr001af1n"
+  ACR_LOGIN_SERVER: "myacr001af1n.azurecr.io"
   FRONTEND_IMAGE: "frontend"
   BACKEND_IMAGE: "backend"
   DB_IMAGE: "db"
@@ -33,27 +33,23 @@ jobs:
         run: |
           az group create --name "${{ env.RESOURCE_GROUP_NAME }}" --location "${{ env.LOCATION }}"
 
-      - name: Docker login to ACR
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ env.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-
       - name: Install docker-compose
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
           docker-compose --version
 
-      - name: Build and Tag Images
+      - name: Build and Tag Docker Images
         run: |
-          docker-compose -f docker-compose.yml build
-      
+          docker-compose build
           docker tag 3-tier-docker-app-actions_frontend $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest
           docker tag 3-tier-docker-app-actions_backend $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest
           docker tag 3-tier-docker-app-actions_db $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest
 
+      - name: Azure Container Registry Login
+        run: |
+          az acr login --name $ACR_NAME
+          docker info  # debug check
 
       - name: Push Images to ACR
         run: |
@@ -61,49 +57,40 @@ jobs:
           docker push $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest
           docker push $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest
 
-      - name: Deploy Frontend ACI
+      - name: Deploy Frontend to ACI
         run: |
           az container create \
-            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
-            --name ${{ env.ACI_NAME_FRONTEND }} \
+            --resource-group $RESOURCE_GROUP_NAME \
+            --name $ACI_NAME_FRONTEND \
             --image $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest \
-            --cpu 1 \
-            --memory 1 \
+            --cpu 1 --memory 1 \
             --registry-login-server $ACR_LOGIN_SERVER \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
             --dns-name-label frontend-${{ github.run_number }} \
             --ports 80
 
-      - name: Deploy Backend ACI
+      - name: Deploy Backend to ACI
         run: |
           az container create \
-            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
-            --name ${{ env.ACI_NAME_BACKEND }} \
+            --resource-group $RESOURCE_GROUP_NAME \
+            --name $ACI_NAME_BACKEND \
             --image $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest \
-            --cpu 1 \
-            --memory 1 \
+            --cpu 1 --memory 1 \
             --registry-login-server $ACR_LOGIN_SERVER \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
             --dns-name-label backend-${{ github.run_number }} \
             --ports 5000
 
-      - name: Deploy MySQL ACI
+      - name: Deploy MySQL DB to ACI
         run: |
           az container create \
-            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
-            --name ${{ env.ACI_NAME_DB }} \
+            --resource-group $RESOURCE_GROUP_NAME \
+            --name $ACI_NAME_DB \
             --image $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest \
-            --cpu 1 \
-            --memory 1 \
+            --cpu 1 --memory 1 \
             --registry-login-server $ACR_LOGIN_SERVER \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
             --dns-name-label mysql-${{ github.run_number }} \
             --ports 3306 \
             --environment-variables \
-                MYSQL_ROOT_PASSWORD=123456 \
-                MYSQL_DATABASE=appdb \
-                MYSQL_USER=admin \
-                MYSQL_PASSWORD=password
+              MYSQL_ROOT_PASSWORD=123456 \
+              MYSQL_DATABASE=appdb \
+              MYSQL_USER=admin \
+              MYSQL_PASSWORD=password
