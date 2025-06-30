@@ -60,44 +60,46 @@ jobs:
       - name: Deploy Frontend to ACI
         run: |
           az container create \
-            --resource-group $RESOURCE_GROUP_NAME \
-            --name $ACI_NAME_FRONTEND \
-            --image $ACR_LOGIN_SERVER/${{ env.FRONTEND_IMAGE }}:latest \
+            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
+            --name ${{ env.ACI_NAME_FRONTEND }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.FRONTEND_IMAGE }}:latest \
             --cpu 1 --memory 1 \
-            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-login-server ${{ env.ACR_LOGIN_SERVER }} \
             --registry-username ${{ secrets.ACR_USERNAME }} \
             --registry-password ${{ secrets.ACR_PASSWORD }} \
             --dns-name-label frontend-${{ github.run_number }} \
-            --ports 80
+            --ports 80 \
+            --os-type Linux
 
       - name: Deploy Backend to ACI
         run: |
           az container create \
-            --resource-group $RESOURCE_GROUP_NAME \
-            --name $ACI_NAME_BACKEND \
-            --image $ACR_LOGIN_SERVER/${{ env.BACKEND_IMAGE }}:latest \
+            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
+            --name ${{ env.ACI_NAME_BACKEND }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.BACKEND_IMAGE }}:latest \
             --cpu 1 --memory 1 \
-            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-login-server ${{ env.ACR_LOGIN_SERVER }} \
             --registry-username ${{ secrets.ACR_USERNAME }} \
             --registry-password ${{ secrets.ACR_PASSWORD }} \
             --dns-name-label backend-${{ github.run_number }} \
-            --ports 5000
+            --ports 5000 \
+            --os-type Linux
 
       - name: Deploy MySQL DB to ACI
         run: |
           az container create \
-            --resource-group $RESOURCE_GROUP_NAME \
-            --name $ACI_NAME_DB \
-            --image $ACR_LOGIN_SERVER/${{ env.DB_IMAGE }}:latest \
+            --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
+            --name ${{ env.ACI_NAME_DB }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/${{ env.DB_IMAGE }}:latest \
             --cpu 1 --memory 1 \
-            --registry-login-server $ACR_LOGIN_SERVER \
+            --registry-login-server ${{ env.ACR_LOGIN_SERVER }} \
             --registry-username ${{ secrets.ACR_USERNAME }} \
             --registry-password ${{ secrets.ACR_PASSWORD }} \
             --dns-name-label mysql-${{ github.run_number }} \
             --ports 3306 \
+            --os-type Linux \
             --environment-variables \
               MYSQL_ROOT_PASSWORD=123456 \
               MYSQL_DATABASE=appdb \
               MYSQL_USER=admin \
               MYSQL_PASSWORD=password
-
